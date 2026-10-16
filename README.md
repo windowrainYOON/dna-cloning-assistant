@@ -71,7 +71,7 @@ T7 terminator가 5,645–5,692에서 끝나기 때문에 노트에 "5,692 bp"로
 python3 -m unittest discover -s tests
 ```
 
-파싱·왕복 저장·서열 편집·Tm·프라이머 결합 위치·PCR 프로그램까지 21개 테스트가
+파싱·왕복 저장·서열 편집·Tm·프라이머 결합 위치·PCR 프로그램·버전 일관성까지 24개 테스트가
 위 예제 파일의 실제 값(5,717 bp, feature 17개, SnapGene이 적어 둔 결합 위치와 길이)을
 기준으로 검증합니다.
 
@@ -84,7 +84,7 @@ PyInstaller만 `build/.venv`에 설치합니다.
 ./build/build_macos.sh
 ```
 
-* 결과물: `~/Desktop/DNA-Cloning-Assistant_v0.1.0_apple-silicon.dmg`
+* 결과물: `~/Desktop/DNA-Cloning-Assistant_v<버전>_apple-silicon.dmg` (현재 v0.1.1)
   (`이름_v버전_apple-silicon.dmg` 규칙, `OUTPUT_DIR=...`로 저장 위치 변경 가능)
 * 버전은 `app/version.py`와 `pyproject.toml`에 있습니다. 둘 다 올려서 커밋하면
   파일명도 따라갑니다.

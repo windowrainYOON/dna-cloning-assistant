@@ -1,6 +1,6 @@
 [project]
 name = "dna-cloning-assistant"
-version = "0.1.0"
+version = "0.1.1"
 description = "Local SnapGene .dna viewer/editor with Pfu-X PCR condition design"
 requires-python = ">=3.10"
 dependencies = []          # the application itself is standard library only

@@ -23,7 +23,10 @@ if [[ "$ARCH" != "arm64" ]]; then
 fi
 
 PYTHON="${PYTHON:-python3}"
-VERSION="$("$PYTHON" -c 'import re,pathlib; print(re.search(r"\"(.+?)\"", pathlib.Path("app/version.py").read_text()).group(1))')"
+# Read the version from the package itself rather than scraping the file, so a
+# docstring quote cannot be picked up instead (that produced a dmg named _v"_).
+VERSION="$("$PYTHON" -c 'import sys; sys.path.insert(0, "."); from app.version import __version__; print(__version__)')"
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "버전을 읽지 못했습니다: '$VERSION'"; exit 1; }
 echo "==> ${APP_NAME} ${VERSION} (${ARCH})"
 
 if [[ ! -d "$VENV" ]]; then
