@@ -16,11 +16,11 @@ a = Analysis(
     ["../desktop_app.py"],
     pathex=[os.path.abspath(".")],
     binaries=[],
-    datas=[("../app/static", "app/static")],
-    hiddenimports=["objc", "Foundation", "AppKit", "WebKit"],
+    datas=[],
+    hiddenimports=["tkinter", "tkinter.filedialog", "tkinter.messagebox", "tkinter.ttk"],
     hookspath=[],
     runtime_hooks=[],
-    excludes=["tkinter", "unittest", "pydoc_data"],
+    excludes=["unittest", "pydoc_data"],
     cipher=block_cipher,
 )
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)

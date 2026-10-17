@@ -10,7 +10,7 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from app import settings, webview  # noqa: E402
+from app import settings  # noqa: E402
 
 EXAMPLE = os.path.join(ROOT, "examples", "pET28a-6xHis-hPRD_ORF1_only.dna")
 
@@ -82,14 +82,6 @@ class TestLibrary(unittest.TestCase):
         shutil.copy(EXAMPLE, os.path.join(self.lib, "added-later.dna"))
         names = {f["name"] for f in settings.list_library()["files"]}
         self.assertIn("added-later.dna", names)
-
-
-class TestWebview(unittest.TestCase):
-    def test_falls_back_when_the_bridge_is_absent(self):
-        """Off macOS there is no WebKit bridge, and that must not raise."""
-        if sys.platform != "darwin":
-            self.assertFalse(webview.available())
-            self.assertFalse(webview.open_window("http://127.0.0.1:1/"))
 
 
 if __name__ == "__main__":

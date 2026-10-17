@@ -4,8 +4,13 @@
 #   ./build/build_macos.sh            # -> ~/Desktop/DNA-Cloning-Assistant_v<ver>_apple-silicon.dmg
 #   OUTPUT_DIR=. ./build/build_macos.sh
 #
-# Run it from the repository root on an Apple Silicon Mac with Python 3.10+.
-# Everything else (PyInstaller) is installed into build/.venv by this script.
+# Run it from the repository root on an Apple Silicon Mac with Python 3.10+
+# that has tkinter (python.org installer, or `brew install python-tk`).
+# PyInstaller is installed into build/.venv by this script; nothing else is
+# needed, and no browser engine is involved.
+#
+# After the dmg is written the app is also installed into /Applications,
+# replacing the previous version. INSTALL=0 skips that.
 
 set -euo pipefail
 
@@ -34,9 +39,14 @@ if [[ ! -d "$VENV" ]]; then
   "$PYTHON" -m venv "$VENV"
 fi
 "$VENV/bin/pip" install --quiet --upgrade pip
-# PyObjC gives the app its native WKWebView window; PyInstaller bundles it.
-"$VENV/bin/pip" install --quiet "pyinstaller>=6.6" \
-  "pyobjc-framework-Cocoa>=10.0" "pyobjc-framework-WebKit>=10.0"
+"$VENV/bin/pip" install --quiet "pyinstaller>=6.6"
+
+# The interface is tkinter, so the interpreter being bundled must have it.
+"$VENV/bin/python" -c "import tkinter" 2>/dev/null || {
+  echo "이 파이썬에는 tkinter가 없습니다. python.org 설치본을 쓰거나 'brew install python-tk' 후"
+  echo "PYTHON=/opt/homebrew/bin/python3.12 ./build/build_macos.sh 처럼 다시 실행하세요."
+  exit 1
+}
 
 echo "==> 테스트"
 "$PYTHON" -m unittest discover -s tests -q
@@ -69,3 +79,10 @@ hdiutil create -volname "${APP_NAME} ${VERSION}" -srcfolder "$STAGE" \
 
 echo "==> 완료: $DMG"
 ls -lh "$DMG"
+
+if [[ "${INSTALL:-1}" == "1" ]]; then
+  echo "==> /Applications 에 설치"
+  rm -rf "/Applications/${APP_NAME}.app"
+  ditto "$APP" "/Applications/${APP_NAME}.app"
+  echo "설치 완료: /Applications/${APP_NAME}.app"
+fi

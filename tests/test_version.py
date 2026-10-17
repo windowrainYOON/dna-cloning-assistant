@@ -21,6 +21,14 @@ class TestVersion(unittest.TestCase):
         self.assertIsNotNone(declared)
         self.assertEqual(declared.group(1), __version__)
 
+    def test_no_browser_engine_is_bundled(self):
+        """The UI is tkinter; nothing may pull a web view back in."""
+        with open(os.path.join(ROOT, "build", "build_macos.sh"), encoding="utf-8") as fh:
+            script = fh.read()
+        for banned in ("pyobjc-framework-WebKit", "webview", "chromium", "electron"):
+            self.assertNotIn(banned, script)
+        self.assertFalse(os.path.exists(os.path.join(ROOT, "app", "static")))
+
     def test_build_script_reads_the_package(self):
         """It must import app.version, not scrape quotes out of the file."""
         with open(os.path.join(ROOT, "build", "build_macos.sh"), encoding="utf-8") as fh:

@@ -1,27 +1,18 @@
 # DNA Cloning Assistant
 
 SnapGene `.dna` 파일을 읽고 고치고, 프라이머를 넣으면 Pfu-X PCR 조건을 계산해 주는
-로컬 프로그램입니다. 화면은 로컬에서 띄운 작은 서버가 그리고, macOS 앱으로 빌드하면
-그 화면이 독립된 앱 창으로 열립니다. 파이썬만 있으면 되고 추가 설치 패키지는 없습니다
-(네이티브 창에만 PyObjC가 쓰이고, 없으면 브라우저로 폴백합니다).
+데스크톱 프로그램입니다. 화면은 파이썬 표준 라이브러리의 tkinter로 직접 그립니다 —
+브라우저도, 웹뷰도, 로컬 서버도 쓰지 않습니다. 설치할 패키지는 없습니다.
 
 ```bash
 python3 run.py examples/pET28a-6xHis-hPRD_ORF1_only.dna
 ```
 
-명령 하나로 뜹니다(`--port`, `--no-browser` 옵션 있음). 파일 인자 없이
-`python3 run.py`로 띄운 뒤 화면에서 **파일 열기**를 눌러도 됩니다. Python 3.10 이상이면 됩니다.
+명령 하나로 창이 뜹니다. 파일 인자 없이 `python3 run.py`로 띄운 뒤 **열기…**를 눌러도
+되고, 라이브러리 탭에서 폴더를 지정해 두면 목록에서 바로 열 수 있습니다.
+Python 3.10 이상에 tkinter가 포함돼 있어야 합니다(python.org 설치본에는 들어 있고,
+Homebrew 파이썬이면 `brew install python-tk`).
 
-macOS에서 `--window`를 주면 브라우저 탭이 아니라 **독립된 앱 창**으로 뜹니다. 창은 macOS에
-이미 들어 있는 WebKit(`WKWebView`)을 PyObjC로 띄우는 것이라 번들 안에 들어가는 건 PyObjC
-브리지뿐이고, 브라우저는 관여하지 않습니다. 패키징한 `.app`은 항상 이 창으로 열립니다.
-PyObjC가 없으면(맥이 아니거나 추가 설치를 안 한 경우) 자동으로 브라우저로 넘어가므로
-`python3 run.py`는 어디서나 설치 없이 동작합니다.
-
-```bash
-python3 run.py --window                      # 네이티브 창
-pip install 'dna-cloning-assistant[macos]'   # 창에 필요한 PyObjC (선택)
-```
 
 ## 할 수 있는 일
 
@@ -91,43 +82,43 @@ T7 terminator가 5,645–5,692에서 끝나기 때문에 노트에 "5,692 bp"로
 python3 -m unittest discover -s tests
 ```
 
-파싱·왕복 저장·서열 편집·Tm·프라이머 결합 위치·PCR 프로그램·라이브러리 폴더·버전
-일관성까지 31개 테스트가
+파싱·왕복 저장·서열 편집·Tm·프라이머 결합 위치·PCR 프로그램·라이브러리 폴더·화면
+레이아웃(서열 줄, 맵 호, feature 상세, PCR 리포트)·버전 일관성까지 44개 테스트가
 위 예제 파일의 실제 값(5,717 bp, feature 17개, SnapGene이 적어 둔 결합 위치와 길이)을
 기준으로 검증합니다.
 
 ## macOS 앱(.dmg) 빌드
 
-Apple Silicon Mac에서 저장소 루트에서 한 번만 실행하면 됩니다. Node.js는 쓰지 않고
-PyInstaller만 `build/.venv`에 설치합니다.
+Apple Silicon Mac에서 저장소 루트에서 한 번만 실행하면 됩니다.
 
 ```bash
 ./build/build_macos.sh
 ```
 
-* 결과물: `~/Desktop/DNA-Cloning-Assistant_v<버전>_apple-silicon.dmg` (현재 v0.2.0)
+* 결과물: `~/Desktop/DNA-Cloning-Assistant_v<버전>_apple-silicon.dmg` (현재 v0.3.0)
   (`이름_v버전_apple-silicon.dmg` 규칙, `OUTPUT_DIR=...`로 저장 위치 변경 가능)
 * 버전은 `app/version.py`와 `pyproject.toml`에 있습니다. 둘 다 올려서 커밋하면
   파일명도 따라갑니다.
 * 아이콘은 `assets/AppIcon.icns`(16px부터 1024px까지 전 해상도 포함)이며
   `build/dna_cloning_assistant.spec`에서 번들 아이콘으로 연결돼 있습니다.
   다시 그리려면 `python3 assets/make_icon.py`(Pillow 필요 — 빌드에는 불필요).
-* 빌드할 때 PyInstaller와 함께 PyObjC(Cocoa, WebKit)를 `build/.venv`에 설치해 번들에
-  넣습니다. Node.js는 쓰지 않습니다.
+* 빌드할 때 `build/.venv`에 설치하는 건 PyInstaller뿐입니다. 빌드에 쓰는 파이썬에
+  tkinter가 있어야 하며(`python3 -c "import tkinter"`), 없으면 스크립트가 알려 줍니다.
+* dmg를 만든 뒤 앱을 `/Applications`에도 설치합니다(이전 버전은 교체). 설치를 건너뛰려면
+  `INSTALL=0 ./build/build_macos.sh`.
 * 빌드 스크립트는 번들을 ad-hoc 서명합니다. 다른 Mac에 배포하려면 Developer ID
   서명과 notarization이 따로 필요합니다.
 
 ## 구조
 
 ```
-run.py                      실행 진입점 (--window 로 네이티브 창)
-desktop_app.py              앱 번들 진입점 (빈 포트를 찾아 네이티브 창으로 실행)
-app/webview.py              WKWebView 네이티브 창 (없으면 브라우저로 폴백)
+run.py                      실행 진입점
+desktop_app.py              앱 번들 진입점
+app/gui.py                  tkinter 화면 (창·탭·Canvas 맵·Treeview)
+app/view_model.py           화면에 뿌릴 줄·호·텍스트를 만드는 순수 함수
 app/settings.py             라이브러리 폴더·최근 파일 저장
 app/snapgene.py             .dna 읽기/쓰기, feature 좌표를 보존하는 서열 편집
 app/pcr.py                  Tm, 프라이머 결합 위치, Pfu-X 프로그램
-app/server.py               JSON API + 정적 파일
-app/static/                 GUI (HTML/CSS/JS, 외부 라이브러리 없음)
 assets/                     앱 아이콘과 생성 스크립트
 build/                      PyInstaller spec과 dmg 빌드 스크립트
 tests/                      예제 플라스미드 기준 단위 테스트
