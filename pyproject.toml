@@ -1,0 +1,16 @@
+[project]
+name = "dna-cloning-assistant"
+version = "0.3.1"
+description = "Local SnapGene .dna viewer/editor with Pfu-X PCR condition design"
+requires-python = ">=3.10"
+dependencies = []          # the application itself is standard library only
+
+[project.scripts]
+dna-cloning-assistant = "run:cli"
+
+[project.optional-dependencies]
+# The app itself is standard library only (tkinter); this is just the packager.
+build = ["pyinstaller>=6.6"]
+
+[tool.setuptools]
+packages = ["app"]

@@ -1,0 +1,4 @@
+"""Single source of truth for the application version."""
+
+__version__ = "0.3.1"
+APP_NAME = "DNA Cloning Assistant"
