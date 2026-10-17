@@ -35,7 +35,44 @@ async function api(path, body) {
 function setState(data) {
   state = data;
   render();
+  if (library.dir || (library.recent || []).length) renderLibrary();
 }
+
+/** In the native window there is no browser download, so hide that button. */
+const NATIVE = new URLSearchParams(location.search).get("native") === "1";
+if (NATIVE) $("btn-download").style.display = "none";
+
+/* WKWebView ignores window.prompt/confirm unless the host app implements a UI
+   delegate, so the app asks in the page instead — same code in both modes. */
+function dialog(message, { value = null, okText = "확인" } = {}) {
+  return new Promise((resolve) => {
+    const input = value === null ? null
+      : el("input", { type: "text", value, class: "grow", style: "width:100%" });
+    const close = (result) => { back.remove(); resolve(result); };
+    const ok = el("button", { class: "btn primary", text: okText,
+      onclick: () => close(input ? input.value : true) });
+    const box = el("div", { class: "modal" }, [
+      el("p", { text: message }),
+      ...(input ? [input] : []),
+      el("div", { class: "row", style: "justify-content:flex-end;margin:.7rem 0 0" }, [
+        el("button", { class: "btn", text: "취소", onclick: () => close(null) }), ok,
+      ]),
+    ]);
+    const back = el("div", { class: "modalback", onclick: (e) => {
+      if (e.target === back) close(null); } }, box);
+    document.body.append(back);
+    (input || ok).focus();
+    if (input) {
+      input.select();
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") close(input.value);
+        if (e.key === "Escape") close(null);
+      });
+    }
+  });
+}
+const askText = (message, value) => dialog(message, { value });
+const askYesNo = (message) => dialog(message).then((v) => v === true);
 
 // ---------------------------------------------------------------- rendering
 
@@ -49,6 +86,15 @@ function render() {
   renderFeatures();
   renderPrimers();
   fillPrimerPickers();
+}
+
+/** SnapGene stores some features as white, which disappears on a pale map. */
+function displayColor(color) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(color || "");
+  if (!m) return color || "#aab1bd";
+  const n = parseInt(m[1], 16);
+  const lum = (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
+  return lum > 0.92 ? "#9aa3b2" : color;
 }
 
 /* ------------------------------------------------------------------ map */
@@ -87,6 +133,7 @@ function renderMap() {
     lanes.push([f]); return lanes.length - 1;
   };
 
+  const labelled = new Set();
   const sorted = [...state.features].sort((a, b) => (b.end - b.start) - (a.end - a.start));
   for (const f of sorted) {
     const lane = ringFor(f);
@@ -95,14 +142,30 @@ function renderMap() {
     const large = (f.end - f.start + 1) / len > 0.5 ? 1 : 0;
     const path = add("path", {
       d: `M ${x1} ${y1} A ${rad} ${rad} 0 ${large} 1 ${x2} ${y2}`,
-      fill: "none", stroke: f.color, "stroke-width": 9, "stroke-linecap": "butt",
+      fill: "none", stroke: displayColor(f.color), "stroke-width": 9, "stroke-linecap": "butt",
       opacity: 0.9,
     });
-    path.append(document.createElementNS(NS, "title")).textContent =
-      `${f.name} (${f.type}) ${f.start}–${f.end}`;
+    const tip = document.createElementNS(NS, "title");
+    tip.textContent = `${f.name} (${f.type}) ${f.start}–${f.end}`;
+    path.append(tip);
+    if (f.directionality === 1 || f.directionality === 2) {
+      const at = f.directionality === 1 ? f.end : f.start - 1;
+      const [ax, ay] = pt(at, rad);
+      const a = ang(at) + (f.directionality === 1 ? 0 : Math.PI);
+      const wing = 7;
+      const back = a + Math.PI;
+      add("path", {
+        d: `M ${ax} ${ay} ` +
+           `L ${ax + wing * Math.cos(back - 0.5)} ${ay + wing * Math.sin(back - 0.5)} ` +
+           `L ${ax + wing * Math.cos(back + 0.5)} ${ay + wing * Math.sin(back + 0.5)} Z`,
+        fill: displayColor(f.color),
+      });
+    }
     const mid = (f.start + f.end) / 2;
     const [lx, ly] = pt(mid, rad - 14);
-    if (f.end - f.start > len / 60) {
+    const key = `${f.name}:${f.start}:${f.end}`;
+    if (f.end - f.start > len / 60 && !labelled.has(key)) {
+      labelled.add(key);
       const t = add("text", { x: lx, y: ly, fill: "var(--text)", "font-size": 9,
                               "text-anchor": "middle", "dominant-baseline": "middle" });
       t.textContent = f.name;
@@ -123,7 +186,8 @@ function renderMap() {
   legend.innerHTML = "";
   for (const f of state.features) {
     legend.append(el("li", {}, [
-      el("span", { class: "swatch", style: `background:${f.color}` }),
+      el("span", { class: "swatch",
+        style: `background:${f.color};border:1px solid ${displayColor(f.color)}` }),
       el("span", { text: `${f.name} (${f.start.toLocaleString()}–${f.end.toLocaleString()})` }),
     ]));
   }
@@ -145,6 +209,7 @@ function renderSequence(scrollTo) {
   const seq = state.sequence;
   const colors = $("show-translation").checked ? featureColorMap() : [];
   const showRc = $("show-revcomp").checked;
+  const showTrack = $("show-feature-track").checked;
   const width = 60;
   const comp = { A: "T", C: "G", G: "C", T: "A", N: "N" };
   const frag = document.createDocumentFragment();
@@ -166,6 +231,27 @@ function renderSequence(scrollTo) {
       if ((k + 1) % 10 === 0) line.append(document.createTextNode(" "));
     }
     frag.append(line);
+    if (showTrack) {
+      for (const f of state.features) {
+        if (f.end < i + 1 || f.start > i + chunk.length) continue;
+        const track = el("div", { class: "track" });
+        track.append(el("span", { class: "seqnum",
+          text: " ".repeat(String(seq.length).length) + "  " }));
+        let row = "";
+        for (let k = 0; k < chunk.length; k++) {
+          const pos = i + k + 1;
+          if (pos < f.start || pos > f.end) row += " ";
+          else if (pos === f.start) row += f.directionality === 2 ? "◀" : "├";
+          else if (pos === f.end) row += f.directionality === 1 ? "▶" : "┤";
+          else row += "─";
+          if ((k + 1) % 10 === 0) row += " ";
+        }
+        track.append(el("span", { style: `color:${displayColor(f.color)}`, text: row }));
+        track.append(el("span", { class: "name", style: `color:${displayColor(f.color)}`,
+          text: f.name + (f.type && f.type !== "misc_feature" ? ` (${f.type})` : "") }));
+        frag.append(track);
+      }
+    }
     if (showRc) {
       const rc = el("div", { class: "seqline muted" });
       rc.append(el("span", { class: "seqnum",
@@ -241,23 +327,56 @@ function renderFeatures() {
       } catch (err) { say(err.message, true); }
     };
     for (const input of [name, type, dir, start, end, color]) input.addEventListener("change", save);
-    tbody.append(el("tr", {}, [
+    const detail = el("tr", { class: "featdetail", style: "display:none" }, [
+      el("td", { colspan: 9 }, featureDetail(f)),
+    ]);
+    const row = el("tr", {}, [
       el("td", {}, name), el("td", {}, type), el("td", {}, dir),
       el("td", { class: "num" }, start), el("td", { class: "num" }, end),
       el("td", { text: (f.end - f.start + 1).toLocaleString() }),
       el("td", {}, color),
+      el("td", { text: f.segments.length > 1 ? `${f.segments.length}개` : "1개" }),
       el("td", {}, [
+        el("button", { class: "btn small", text: "상세", onclick: () => {
+          detail.style.display = detail.style.display === "none" ? "" : "none"; } }),
         el("button", { class: "btn small", text: "보기",
           onclick: () => { selection = { start: f.start, end: f.end };
             switchTab("sequence"); renderSequence(f.start); showSelection(); } }),
         el("button", { class: "btn small danger", text: "삭제", onclick: async () => {
-          if (!confirm(`${f.name} feature를 삭제할까요?`)) return;
+          if (!await askYesNo(`${f.name} feature를 삭제할까요?`)) return;
           try { setState(await api("/api/features", { action: "delete", index: idx }));
             say("삭제했습니다."); } catch (err) { say(err.message, true); }
         } }),
       ]),
-    ]));
+    ]);
+    tbody.append(row, detail);
   });
+}
+
+/** Everything SnapGene stored on a feature that the table has no column for. */
+function featureDetail(f) {
+  const box = el("div", {});
+  const strand = { 1: "forward (top strand)", 2: "reverse (bottom strand)" }[f.directionality]
+    || "방향 없음";
+  const dl = el("dl", { class: "qualifiers" });
+  const add = (k, v) => { dl.append(el("dt", { text: k }), el("dd", { text: v })); };
+  add("위치", `${f.start.toLocaleString()}–${f.end.toLocaleString()} ` +
+    `(${(f.end - f.start + 1).toLocaleString()} bp, ${strand})`);
+  add("종류", f.type);
+  add("색", f.color);
+  if (f.segments.length > 1) {
+    add("조각", f.segments.map((sg) => `${sg.start}–${sg.end}`).join(", "));
+  }
+  for (const [key, value] of Object.entries(f.notes || {})) {
+    if (value) add(key, value);
+  }
+  box.append(dl);
+  if (f.translation) {
+    box.append(el("div", { class: "muted", style: "margin-top:.4rem",
+      text: `번역 (${f.translation.replace(/\*$/, "").length} aa)` }));
+    box.append(el("div", { class: "aa", text: f.translation }));
+  }
+  return box;
 }
 
 $("btn-add-feature").onclick = async () => {
@@ -317,7 +436,7 @@ async function renderPrimers() {
           switchTab("pcr");
         } }),
         el("button", { class: "btn small danger", text: "삭제", onclick: async () => {
-          if (!confirm(`${p.name} 프라이머를 삭제할까요?`)) return;
+          if (!await askYesNo(`${p.name} 프라이머를 삭제할까요?`)) return;
           try { setState(await api("/api/primers", { action: "delete", index: idx }));
             say("삭제했습니다."); } catch (err) { say(err.message, true); }
         } }),
@@ -487,6 +606,85 @@ function appendAssumptions(out, assumptions) {
   ]));
 }
 
+/* ------------------------------------------------------------- library */
+let library = { dir: null, files: [], recent: [] };
+
+async function loadLibrary() {
+  try {
+    library = await api("/api/library");
+  } catch (err) { say(err.message, true); return; }
+  if (library.dir) $("lib-path").value = library.dir;
+  renderLibrary();
+}
+
+function renderLibrary() {
+  const tbody = $("library-table").querySelector("tbody");
+  tbody.innerHTML = "";
+  if (library.error) {
+    tbody.append(el("tr", {}, el("td", { colspan: 5, class: "muted", text: library.error })));
+  } else if (!library.dir) {
+    tbody.append(el("tr", {}, el("td", { colspan: 5, class: "muted",
+      text: "폴더를 지정하면 그 안의 .dna 파일이 여기에 나옵니다." })));
+  } else if (!library.files.length) {
+    tbody.append(el("tr", {}, el("td", { colspan: 5, class: "muted",
+      text: "이 폴더에 .dna 파일이 없습니다." })));
+  }
+  for (const f of library.files) {
+    const open = async () => {
+      try {
+        setState(await api("/api/open", { path: f.path }));
+        say(`${f.name}을(를) 열었습니다.`);
+        renderLibrary();
+        switchTab("map");
+      } catch (err) { say(err.message, true); }
+    };
+    const isOpen = state.loaded && state.path === f.path;
+    tbody.append(el("tr", { class: isOpen ? "current" : "" }, [
+      el("td", {}, el("button", { class: "btn small", text: f.name, onclick: open })),
+      el("td", { class: "muted", text: f.folder || "·" }),
+      el("td", { text: `${Math.round(f.size / 1024).toLocaleString()} KB` }),
+      el("td", { class: "muted", text: f.modified }),
+      el("td", {}, el("button", { class: "btn small", text: isOpen ? "열림" : "열기",
+        onclick: open })),
+    ]));
+  }
+  const recent = $("recent-list");
+  recent.innerHTML = "";
+  for (const r of library.recent || []) {
+    recent.append(el("li", {}, el("button", {
+      text: `${r.name} — ${r.path}`,
+      onclick: async () => {
+        try { setState(await api("/api/open", { path: r.path })); say(`${r.name}을(를) 열었습니다.`);
+          switchTab("map"); } catch (err) { say(err.message, true); }
+      } })));
+  }
+  if (!(library.recent || []).length) {
+    recent.append(el("li", { class: "muted", text: "아직 없습니다." }));
+  }
+  if (library.truncated) {
+    $("lib-note").textContent = `파일이 많아 ${library.files.length}개까지만 표시합니다.`;
+  }
+}
+
+$("btn-lib-save").onclick = async () => {
+  const path = $("lib-path").value.trim();
+  if (!path) { say("폴더 경로를 입력하세요.", true); return; }
+  try {
+    library = await api("/api/library", { path });
+    renderLibrary();
+    say(`폴더를 기억했습니다: ${library.dir}`);
+  } catch (err) { say(err.message, true); }
+};
+$("btn-lib-refresh").onclick = loadLibrary;
+$("btn-lib-clear").onclick = async () => {
+  try {
+    library = await api("/api/library", { clear: true });
+    $("lib-path").value = "";
+    renderLibrary();
+    say("폴더 지정을 해제했습니다.");
+  } catch (err) { say(err.message, true); }
+};
+
 /* ----------------------------------------------------------------- misc */
 function switchTab(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
@@ -507,7 +705,7 @@ $("file-input").onchange = async (e) => {
 };
 
 $("btn-save").onclick = async () => {
-  const path = prompt("저장할 경로", state.path || "plasmid.dna");
+  const path = await askText("저장할 경로", state.path || "plasmid.dna");
   if (!path) return;
   try { const r = await api("/api/save", { path }); say(`저장했습니다: ${r.saved}`); }
   catch (err) { say(err.message, true); }
@@ -519,7 +717,7 @@ $("btn-edit").onclick = async () => {
   const start = +$("edit-start").value, end = +$("edit-end").value;
   if (!start || !end) { say("편집할 범위를 선택하세요.", true); return; }
   const repl = $("edit-replacement").value.replace(/\s+/g, "");
-  if (!confirm(`${start}–${end} (${end - start + 1} bp)를 "${repl || "(삭제)"}"로 바꿀까요?`)) return;
+  if (!await askYesNo(`${start}–${end} (${end - start + 1} bp)를 "${repl || "(삭제)"}"로 바꿀까요?`)) return;
   try {
     setState(await api("/api/sequence/edit", { start, end, replacement: repl }));
     selection = null;
@@ -534,5 +732,7 @@ $("btn-goto").onclick = () => {
 };
 $("show-revcomp").onchange = () => renderSequence();
 $("show-translation").onchange = () => renderSequence();
+$("show-feature-track").onchange = () => renderSequence();
 
 api("/api/state").then(setState).catch((err) => say(err.message, true));
+loadLibrary();

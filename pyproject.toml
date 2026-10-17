@@ -1,6 +1,6 @@
 [project]
 name = "dna-cloning-assistant"
-version = "0.1.1"
+version = "0.2.0"
 description = "Local SnapGene .dna viewer/editor with Pfu-X PCR condition design"
 requires-python = ">=3.10"
 dependencies = []          # the application itself is standard library only
@@ -9,7 +9,10 @@ dependencies = []          # the application itself is standard library only
 dna-cloning-assistant = "run:main"
 
 [project.optional-dependencies]
-build = ["pyinstaller>=6.6"]
+# The app itself needs nothing; these are for the native macOS window and the
+# .dmg build. Without them the UI still opens, in the browser.
+macos = ["pyobjc-framework-Cocoa>=10.0", "pyobjc-framework-WebKit>=10.0"]
+build = ["pyinstaller>=6.6", "pyobjc-framework-Cocoa>=10.0", "pyobjc-framework-WebKit>=10.0"]
 
 [tool.setuptools]
 packages = ["app"]

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DNA Cloning Assistant</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='none' stroke='%235b9dff' stroke-width='2'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -21,6 +22,7 @@
 </header>
 
 <nav class="tabs">
+  <button class="tab" data-tab="library">라이브러리</button>
   <button class="tab active" data-tab="map">맵</button>
   <button class="tab" data-tab="sequence">서열</button>
   <button class="tab" data-tab="features">Features</button>
@@ -29,6 +31,24 @@
 </nav>
 
 <main>
+  <!-- -------------------------------------------------------- library -->
+  <section id="tab-library" class="panel">
+    <div class="row">
+      <label class="grow">플라스미드 폴더
+        <input type="text" id="lib-path" placeholder="예: /Users/이름/Documents/Plasmids"></label>
+      <button id="btn-lib-save" class="btn primary">폴더 지정</button>
+      <button id="btn-lib-refresh" class="btn">새로고침</button>
+      <button id="btn-lib-clear" class="btn danger">해제</button>
+    </div>
+    <p class="muted" id="lib-note">폴더를 지정해 두면 다음에 앱을 열 때도 기억됩니다. 하위 폴더 한 단계까지 찾습니다.</p>
+    <table class="grid" id="library-table">
+      <thead><tr><th>파일</th><th>폴더</th><th>크기</th><th>수정</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <h3>최근 연 파일</h3>
+    <ul id="recent-list" class="recent"></ul>
+  </section>
+
   <!-- ------------------------------------------------------------ map -->
   <section id="tab-map" class="panel active">
     <div class="map-wrap">
@@ -47,7 +67,8 @@
       <label>이동 <input type="number" id="goto-pos" min="1" value="1" style="width:7em"></label>
       <button id="btn-goto" class="btn small">가기</button>
       <label><input type="checkbox" id="show-revcomp"> 상보가닥 표시</label>
-      <label><input type="checkbox" id="show-translation" checked> 번역 feature 색칠</label>
+      <label><input type="checkbox" id="show-translation" checked> feature 색칠</label>
+      <label><input type="checkbox" id="show-feature-track" checked> feature 트랙</label>
       <span id="selection-info" class="muted"></span>
     </div>
     <div id="sequence-view" class="seqview"></div>
@@ -68,7 +89,7 @@
   <section id="tab-features" class="panel">
     <table class="grid" id="feature-table">
       <thead><tr><th>이름</th><th>종류</th><th>방향</th><th>시작</th><th>끝</th>
-        <th>길이</th><th>색</th><th></th></tr></thead>
+        <th>길이</th><th>색</th><th>조각</th><th></th></tr></thead>
       <tbody></tbody>
     </table>
     <h3>feature 추가</h3>

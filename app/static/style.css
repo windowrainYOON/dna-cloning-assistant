@@ -117,3 +117,28 @@ main { padding: 1.1rem; }
 .big { font-size: 1.6rem; font-weight: 600; color: var(--accent-2); }
 .card.wide { grid-column: 1 / -1; }
 details summary { cursor: pointer; color: var(--muted); }
+
+/* library */
+.recent { list-style: none; padding: 0; margin: .4rem 0; }
+.recent li { padding: .15rem 0; text-align: left; }
+.recent button { background: none; border: none; color: var(--accent); cursor: pointer;
+  font: inherit; padding: 0; text-align: left; }
+tr.current td { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+
+/* sequence feature track */
+.track { display: block; color: var(--muted); }
+.track .name { padding-left: .6rem; }
+.featdetail td { background: var(--panel-2); }
+.qualifiers { display: grid; grid-template-columns: auto 1fr; gap: .15rem .7rem;
+  margin: .2rem 0 0; font-size: .82rem; }
+.qualifiers dt { color: var(--muted); }
+.qualifiers dd { margin: 0; overflow-wrap: anywhere; }
+.aa { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .78rem;
+  overflow-wrap: anywhere; color: var(--accent-2); }
+
+/* in-page dialog (WKWebView has no window.prompt) */
+.modalback { position: fixed; inset: 0; background: rgba(0, 0, 0, .45);
+  display: flex; align-items: center; justify-content: center; z-index: 50; }
+.modal { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 1rem 1.1rem; min-width: min(28rem, 92vw); box-shadow: 0 18px 50px rgba(0,0,0,.35); }
+.modal p { margin: 0 0 .6rem; }

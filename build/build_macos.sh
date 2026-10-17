@@ -34,7 +34,9 @@ if [[ ! -d "$VENV" ]]; then
   "$PYTHON" -m venv "$VENV"
 fi
 "$VENV/bin/pip" install --quiet --upgrade pip
-"$VENV/bin/pip" install --quiet "pyinstaller>=6.6"
+# PyObjC gives the app its native WKWebView window; PyInstaller bundles it.
+"$VENV/bin/pip" install --quiet "pyinstaller>=6.6" \
+  "pyobjc-framework-Cocoa>=10.0" "pyobjc-framework-WebKit>=10.0"
 
 echo "==> 테스트"
 "$PYTHON" -m unittest discover -s tests -q

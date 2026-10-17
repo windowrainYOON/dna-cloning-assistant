@@ -4,6 +4,8 @@ Standard library only — `python3 run.py` is all it takes to start.
 The browser talks to a small JSON API:
 
     GET  /api/state              current plasmid
+    GET  /api/library            the saved plasmid folder and the .dna files in it
+    POST /api/library            {path} -> remember a folder, {clear:true} -> forget it
     POST /api/open               {path} or {data: base64}  -> load a .dna file
     POST /api/save               {path} -> write the current plasmid back out
     POST /api/sequence/edit      {start, end, replacement}
@@ -22,6 +24,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
+from . import settings
 from .pcr import design_pcr
 from .snapgene import Feature, Primer, SnapGeneFile
 
@@ -35,6 +38,7 @@ def load(path: str) -> None:
     with _lock:
         _state["file"] = SnapGeneFile.read(path)
         _state["path"] = os.path.abspath(path)
+    settings.note_recent(path)
 
 
 def _current() -> SnapGeneFile:
@@ -85,6 +89,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/state":
             self._json(_state_payload())
             return
+        if path == "/api/library":
+            with _lock:
+                payload = settings.list_library()
+            payload["recent"] = settings.recent_files()
+            payload["config_path"] = settings.config_path()
+            self._json(payload)
+            return
         if path == "/api/download":
             try:
                 f = _current()
@@ -131,6 +142,16 @@ class Handler(BaseHTTPRequestHandler):
         self._json(payload)
 
     def _dispatch(self, path: str, body: dict):
+        if path == "/api/library":
+            if body.get("clear"):
+                settings.clear_library_dir()
+            else:
+                settings.set_library_dir(body.get("path", ""))
+            payload = settings.list_library()
+            payload["recent"] = settings.recent_files()
+            payload["config_path"] = settings.config_path()
+            return payload
+
         if path == "/api/open":
             if body.get("data"):
                 raw = base64.b64decode(body["data"])
@@ -140,6 +161,7 @@ class Handler(BaseHTTPRequestHandler):
                 target = os.path.expanduser(body["path"])
                 _state["file"] = SnapGeneFile.read(target)
                 _state["path"] = os.path.abspath(target)
+                settings.note_recent(target)
             return _state_payload()
 
         if path == "/api/save":
@@ -147,6 +169,7 @@ class Handler(BaseHTTPRequestHandler):
             target = os.path.expanduser(body.get("path") or str(_state["path"]))
             f.write(target)
             _state["path"] = os.path.abspath(target)
+            settings.note_recent(target)
             return {"saved": os.path.abspath(target)}
 
         if path == "/api/sequence/edit":
@@ -195,6 +218,14 @@ class Handler(BaseHTTPRequestHandler):
         return None
 
 
+def start_background(host: str = "127.0.0.1", port: int = 8765) -> tuple[ThreadingHTTPServer, str]:
+    """Start the server on a daemon thread and return it with its URL."""
+    httpd = ThreadingHTTPServer((host, port), Handler)
+    host, port = httpd.server_address[0], httpd.server_address[1]
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    return httpd, f"http://{host}:{port}/"
+
+
 def serve(host: str = "127.0.0.1", port: int = 8765, open_browser: bool = True) -> None:
     httpd = ThreadingHTTPServer((host, port), Handler)
     url = f"http://{host}:{port}/"
@@ -206,4 +237,28 @@ def serve(host: str = "127.0.0.1", port: int = 8765, open_browser: bool = True) 
     except KeyboardInterrupt:
         print("\nbye")
     finally:
+        httpd.server_close()
+
+
+def run_app(host: str = "127.0.0.1", port: int = 8765, prefer_window: bool = True) -> None:
+    """Open the UI in a native window, falling back to the browser.
+
+    The window owns the main thread (AppKit insists), so the server moves to a
+    background thread first.
+    """
+    from . import webview
+
+    httpd, url = start_background(host, port)
+    try:
+        if prefer_window and webview.open_window(url + "?native=1"):
+            return
+        print(f"DNA Cloning Assistant → {url}  (Ctrl+C to stop)")
+        webbrowser.open(url)
+        try:
+            while True:
+                threading.Event().wait(3600)
+        except KeyboardInterrupt:
+            print("\nbye")
+    finally:
+        httpd.shutdown()
         httpd.server_close()

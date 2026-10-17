@@ -15,10 +15,15 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--no-browser", action="store_true", help="do not open a browser")
+    ap.add_argument("--window", action="store_true",
+                    help="open a native macOS window instead of a browser tab")
     args = ap.parse_args()
     if args.dna:
         server.load(args.dna)
-    server.serve(args.host, args.port, open_browser=not args.no_browser)
+    if args.window:
+        server.run_app(args.host, args.port, prefer_window=True)
+    else:
+        server.serve(args.host, args.port, open_browser=not args.no_browser)
 
 
 if __name__ == "__main__":
