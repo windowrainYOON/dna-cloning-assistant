@@ -10,8 +10,10 @@ python3 run.py examples/pET28a-6xHis-hPRD_ORF1_only.dna
 
 명령 하나로 창이 뜹니다. 파일 인자 없이 `python3 run.py`로 띄운 뒤 **열기…**를 눌러도
 되고, 라이브러리 탭에서 폴더를 지정해 두면 목록에서 바로 열 수 있습니다.
-Python 3.10 이상에 tkinter가 포함돼 있어야 합니다(python.org 설치본에는 들어 있고,
-Homebrew 파이썬이면 `brew install python-tk`).
+Python 3.10 이상에, Tk 8.6 이상을 쓰는 tkinter가 필요합니다. tkinter는 pip로 설치할 수
+없고 파이썬 자체에 들어 있어야 하며, macOS 기본 `/usr/bin/python3`에 딸린 Apple Tk
+8.5.9는 최근 macOS에서 창을 여는 순간 종료됩니다. uv로 받은 파이썬(`uv python find
+3.12`, Tk 9.0)이나 Homebrew 파이썬 + `brew install python-tk`를 쓰세요.
 
 
 ## 할 수 있는 일
@@ -95,15 +97,17 @@ Apple Silicon Mac에서 저장소 루트에서 한 번만 실행하면 됩니다
 ./build/build_macos.sh
 ```
 
-* 결과물: `~/Desktop/DNA-Cloning-Assistant_v<버전>_apple-silicon.dmg` (현재 v0.3.0)
+* 결과물: `~/Desktop/DNA-Cloning-Assistant_v<버전>_apple-silicon.dmg` (현재 v0.3.1)
   (`이름_v버전_apple-silicon.dmg` 규칙, `OUTPUT_DIR=...`로 저장 위치 변경 가능)
 * 버전은 `app/version.py`와 `pyproject.toml`에 있습니다. 둘 다 올려서 커밋하면
   파일명도 따라갑니다.
 * 아이콘은 `assets/AppIcon.icns`(16px부터 1024px까지 전 해상도 포함)이며
   `build/dna_cloning_assistant.spec`에서 번들 아이콘으로 연결돼 있습니다.
   다시 그리려면 `python3 assets/make_icon.py`(Pillow 필요 — 빌드에는 불필요).
-* 빌드할 때 `build/.venv`에 설치하는 건 PyInstaller뿐입니다. 빌드에 쓰는 파이썬에
-  tkinter가 있어야 하며(`python3 -c "import tkinter"`), 없으면 스크립트가 알려 줍니다.
+* 빌드할 때 `build/.venv`에 설치하는 건 PyInstaller뿐입니다. 빌드에 쓰는 파이썬의 Tk가
+  8.6 이상이어야 하고, 스크립트가 먼저 확인해서 아니면 멈춥니다. Tk는 앱 번들 안에 함께
+  들어가므로 받는 쪽에는 아무 설치도 필요 없습니다. 보통 이렇게 실행합니다:
+  `PYTHON="$(uv python find 3.12)" ./build/build_macos.sh`
 * dmg를 만든 뒤 앱을 `/Applications`에도 설치합니다(이전 버전은 교체). 설치를 건너뛰려면
   `INSTALL=0 ./build/build_macos.sh`.
 * 빌드 스크립트는 번들을 ad-hoc 서명합니다. 다른 Mac에 배포하려면 Developer ID
